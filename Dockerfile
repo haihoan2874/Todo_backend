@@ -1,33 +1,30 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-# Cài các thư viện cần thiết
+# Cài các extension cần thiết cho Laravel
 RUN apt-get update && apt-get install -y \
-    build-essential \
     libpng-dev \
-    libjpeg-dev \
     libonig-dev \
     libxml2-dev \
     zip \
     unzip \
-    curl \
     git \
-    libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
+    curl \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Cài composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Cài Composer
+COPY --from=composer:2.2 /usr/bin/composer /usr/bin/composer
 
-# Đặt thư mục làm việc
-WORKDIR /var/www
+# Copy code vào container
+COPY . /var/www/html
 
-# Copy toàn bộ code vào container
-COPY . .
+# Phân quyền cho Laravel
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Cài đặt thư viện Laravel
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+# Enable mod_rewrite
+RUN a2enmod rewrite
 
-# Cache cấu hình
-RUN php artisan config:cache && php artisan route:cache && php artisan view:cache
+# Chỉ định thư mục public là root
+WORKDIR /var/www/html
 
-# Chạy Laravel bằng built-in server
-CMD php artisan serve --host=0.0.0.0 --port=8080
+EXPOSE 80
